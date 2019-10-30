@@ -131,7 +131,7 @@ coroutine_resume(struct schedule * S, int id) {
 	switch(status) {
 	case COROUTINE_READY:
 		getcontext(&C->ctx);
-		C->ctx.uc_stack.ss_sp = S->stack;
+		C->ctx.uc_stack.ss_sp = S->stack; // 共同使用S->stack，作为共享栈
 		C->ctx.uc_stack.ss_size = STACK_SIZE;//设置栈容量  使用时栈顶栈底同时指向S->stack+STACK_SIZE，栈顶向下扩张
 		C->ctx.uc_link = &S->main;
 		S->running = id;
@@ -139,6 +139,7 @@ coroutine_resume(struct schedule * S, int id) {
 		uintptr_t ptr = (uintptr_t)S;
 		makecontext(&C->ctx, (void (*)(void)) mainfunc, 2, (uint32_t)ptr, (uint32_t)(ptr>>32));
 		swapcontext(&S->main, &C->ctx);
+		// 这里我稍微要多说几句，因为我迷惑过，我曾经困惑的一点在于uc[0]，为什么uc[0]不需要设置堆栈的信息？因为swapcontext已经帮我们做好了一切，swapcontext函数会将当前点的信息保存在uc[0]中，当然我们没有设置的话，默认的堆栈一定是主堆栈啦
 		break;
 	case COROUTINE_SUSPEND:
 		memcpy(S->stack + STACK_SIZE - C->size, C->stack, C->size);
@@ -160,7 +161,7 @@ _save_stack(struct coroutine *C, char *top) {
 	if (C->cap < top - &dummy) {
 		free(C->stack);
 		C->cap = top-&dummy;
-		C->stack = malloc(C->cap);
+		C->stack = malloc(C->cap); // 拷贝，保存该协程占用的栈信息
 	}
 	C->size = top - &dummy;
 	memcpy(C->stack, &dummy, C->size);
