@@ -3,3 +3,5 @@
 - coroutine
 - leveldb
 - socket-server
+- libco
+
